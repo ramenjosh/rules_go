@@ -34,8 +34,14 @@ _MOCKGEN_MODEL_LIB = Label("//extras/gomock:mockgen_model")
 def _gomock_source_impl(ctx):
     go_ctx = go_context(ctx)
 
+    # In Source mode, it's not necessary to pass through a library, as the only thing we use it for is setting up
+    # the relative file locations. Passing a library can also lead to circular dependencies when using Gazelle to
+    # generate BUILD.bazel files, as it infers that the generated mock should be part of the main library. The loop
+    # here is then GoMock -> GoLibrary -> GoMock. Passing in an importpath directly bypasses this issue.
+    importpath = ctx.attr.importpath if ctx.attr.importpath != "" else ctx.attr.library[GoLibrary].importmap
+
     # create GOPATH and copy source into GOPATH
-    source_relative_path = paths.join("src", ctx.attr.library[GoLibrary].importmap, ctx.file.source.basename)
+    source_relative_path = paths.join("src", importpath, ctx.file.source.basename)
     source = ctx.actions.declare_file(paths.join("gopath", source_relative_path))
 
     # trim the relative path of source to get GOPATH
@@ -101,8 +107,12 @@ _gomock_source = rule(
         "library": attr.label(
             doc = "The target the Go library where this source file belongs",
             providers = [GoLibrary],
-            mandatory = True,
+            mandatory = False,
         ),
+        "importpath": attr.string(
+            doc = "The importpath to use for the module. Incompatible with library.",
+            mandatory = False,
+       ),
         "source": attr.label(
             doc = "A Go source file to find all the interfaces to generate mocks for. See also the docs for library.",
             mandatory = False,
@@ -150,15 +160,16 @@ _gomock_source = rule(
     toolchains = [GO_TOOLCHAIN],
 )
 
-def gomock(name, library, out, source = None, interfaces = [], package = "", self_package = "", aux_files = {}, mockgen_tool = _MOCKGEN_TOOL, imports = {}, copyright_file = None, mock_names = {}, **kwargs):
+def gomock(name, out, library = None, importpath = "", source = None, interfaces = [], package = "", self_package = "", aux_files = {}, mockgen_tool = _MOCKGEN_TOOL, imports = {}, copyright_file = None, mock_names = {}, **kwargs):
     """Calls [mockgen](https://github.com/golang/mock) to generates a Go file containing mocks from the given library.
 
     If `source` is given, the mocks are generated in source mode; otherwise in reflective mode.
 
     Args:
         name: the target name.
-        library: the Go library to took for the interfaces (reflecitve mode) or source (source mode).
         out: the output Go file name.
+        library: the Go library to took for the interfaces (reflecitve mode) or source (source mode). If running in source mode, you can specify importpath instead of this parameter.
+        importpath: the importpath to use when running in source mode. Alternative to using library, which can lead to circular dependencies between mock and library targets.
         source: a Go file in the given `library`. If this is given, `gomock` will call mockgen in source mode to mock all interfaces in the file.
         interfaces: a list of interfaces in the given `library` to be mocked in reflective mode.
         package: the name of the package the generated mocks should be in. If not specified, uses mockgen's default. See [mockgen's -package](https://github.com/golang/mock#flags) for more information.
@@ -173,8 +184,9 @@ def gomock(name, library, out, source = None, interfaces = [], package = "", sel
     if source:
         _gomock_source(
             name = name,
-            library = library,
             out = out,
+            library = library,
+            importpath = importpath,
             source = source,
             package = package,
             self_package = self_package,
@@ -188,8 +200,8 @@ def gomock(name, library, out, source = None, interfaces = [], package = "", sel
     else:
         _gomock_reflect(
             name = name,
-            library = library,
             out = out,
+            library = library,
             interfaces = interfaces,
             package = package,
             self_package = self_package,
