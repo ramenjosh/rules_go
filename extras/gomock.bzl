@@ -35,9 +35,10 @@ def _gomock_source_impl(ctx):
     go_ctx = go_context(ctx)
 
     # In Source mode, it's not necessary to pass through a library, as the only thing we use it for is setting up
-    # the relative file locations. Passing a library can also lead to circular dependencies when using Gazelle to
-    # generate BUILD.bazel files, as it infers that the generated mock should be part of the main library. The loop
-    # here is then GoMock -> GoLibrary -> GoMock. Passing in an importpath directly bypasses this issue.
+    # the relative file locations. Forcing users to pass a library makes it difficult in the case where a mock should
+    # be included as part of that same library, as it results in a dependency loop (GoMock -> GoLibrary -> GoMock).
+    # Allowing users to pass an importpath directly bypasses this issue.
+    # See the test case in //tests/extras/gomock/source_with_importpath for an example.
     importpath = ctx.attr.importpath if ctx.attr.importpath != "" else ctx.attr.library[GoLibrary].importmap
 
     # create GOPATH and copy source into GOPATH
@@ -110,7 +111,7 @@ _gomock_source = rule(
             mandatory = False,
         ),
         "importpath": attr.string(
-            doc = "The importpath to use for the module. Incompatible with library.",
+            doc = "The importpath for the source file. Alternative to passing library, which can lead to circular dependencies between mock and library targets.",
             mandatory = False,
        ),
         "source": attr.label(
@@ -169,7 +170,7 @@ def gomock(name, out, library = None, importpath = "", source = None, interfaces
         name: the target name.
         out: the output Go file name.
         library: the Go library to took for the interfaces (reflecitve mode) or source (source mode). If running in source mode, you can specify importpath instead of this parameter.
-        importpath: the importpath to use when running in source mode. Alternative to using library, which can lead to circular dependencies between mock and library targets.
+        importpath: the importpath for the source file. Alternative to passing library, which can lead to circular dependencies between mock and library targets. Only valid for source mode.
         source: a Go file in the given `library`. If this is given, `gomock` will call mockgen in source mode to mock all interfaces in the file.
         interfaces: a list of interfaces in the given `library` to be mocked in reflective mode.
         package: the name of the package the generated mocks should be in. If not specified, uses mockgen's default. See [mockgen's -package](https://github.com/golang/mock#flags) for more information.

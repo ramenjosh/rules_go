@@ -93,7 +93,7 @@ If `source` is given, the mocks are generated in source mode; otherwise in refle
 | <a id="gomock-name"></a>name |  the target name.   |  none |
 | <a id="gomock-out"></a>out |  the output Go file name.   |  none |
 | <a id="gomock-library"></a>library |  the Go library to took for the interfaces (reflecitve mode) or source (source mode). If running in source mode, you can specify importpath instead of this parameter.   |  <code>None</code> |
-| <a id="gomock-importpath"></a>importpath |  the importpath to use when running in source mode. Alternative to using library, which can lead to circular dependencies between mock and library targets.   |  <code>""</code> |
+| <a id="gomock-importpath"></a>importpath |  the importpath for the source file. Alternative to passing library, which can lead to circular dependencies between mock and library targets. Only valid for source mode.   |  <code>""</code> |
 | <a id="gomock-source"></a>source |  a Go file in the given <code>library</code>. If this is given, <code>gomock</code> will call mockgen in source mode to mock all interfaces in the file.   |  <code>None</code> |
 | <a id="gomock-interfaces"></a>interfaces |  a list of interfaces in the given <code>library</code> to be mocked in reflective mode.   |  <code>[]</code> |
 | <a id="gomock-package"></a>package |  the name of the package the generated mocks should be in. If not specified, uses mockgen's default. See [mockgen's -package](https://github.com/golang/mock#flags) for more information.   |  <code>""</code> |
